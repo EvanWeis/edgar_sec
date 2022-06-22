@@ -76,7 +76,7 @@ def _get_json_map():
 
 def main():
     cik_to_ticker = get_raw_map()
-    cleaned = clean_map(cik_to_ticker, 'cik')
+    cleaned = clean_map(cik_to_ticker, 'ticker')
     for k, v in cleaned.items():
         print(k,":",v)
 
