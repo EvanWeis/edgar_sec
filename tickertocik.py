@@ -39,26 +39,29 @@ def get_raw_map():
 
         return cik_map
 
-def clean_map(raw_map, order):
+def get_clean_map(order):
     '''
     function to reduce the complicated dict 
     to cik as the key and ticker as the value and
     returns the cleaned dict in the format {cik: ticker}
     '''
+    raw_map = get_raw_map()
     clean_map = {}
     if order == 'cik':
         for i in raw_map: #iterate over raw_map and set cik to key and ticker to value
-            clean_map[raw_map[i]['cik_str']] = raw_map[i]['ticker']
+            cik = '0' * (10 - len(str(raw_map[i]['cik_str']))) + str(raw_map[i]['cik_str'])
+            clean_map[cik] = raw_map[i]['ticker']
 
         return clean_map
 
     elif order == 'ticker':
         for i in raw_map: #iterate over raw_map and set cik to key and ticker to value
-            clean_map[raw_map[i]['ticker']] = raw_map[i]['cik_str']
+            cik = '0' * (10 - len(str(raw_map[i]['cik_str']))) + str(raw_map[i]['cik_str'])
+            clean_map[raw_map[i]['ticker']] = cik
 
         return clean_map
     else: print("please specifiy a key")
-
+    
 
 def _get_json_map():
     company_tickers_url = r'https://www.sec.gov/files/company_tickers.json'
@@ -75,8 +78,8 @@ def _get_json_map():
 
 
 def main():
-    cik_to_ticker = get_raw_map()
-    cleaned = clean_map(cik_to_ticker, 'ticker')
+    raw = get_raw_map()
+    cleaned = get_clean_map('ticker')
     for k, v in cleaned.items():
         print(k,":",v)
 
