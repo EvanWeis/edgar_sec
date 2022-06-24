@@ -5,8 +5,31 @@
 # e-mail weis.evan.c@gmail.com 
 
 
-import requests
-import json, os, tickertocik
+import requests, tickertocik
+from bs4 import BeautifulSoup
+
+def get_bulk(req: str, uagent: str = 'Mozilla/5.0') -> None:
+    facts_url = 'https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip'
+    submissions_url = 'https://www.sec.gov/Archives/edgar/daily-index/bulkdata/submissions.zip '
+    header = {'User-agent': uagent}
+
+    if req.lower() == 'facts':
+        print("Fecthing facts... This download is large and may take some time")
+        r = requests.get(facts_url, headers=header)
+        filename = 'EDGARcomapnyfacts.zip'
+        
+    elif req.lower() == 'submissions':
+        print("Fecthing Submissions... This dodwnload is large and may take some time")
+        r = requests.get(submissions_url, headers=header)
+        filename = 'EDGARsubmissions.zip'
+    else:
+        print("ERROR: {} is not a valid argument. expecting 'facts' or 'submissions'")
+    
+    zfile = open(filename, 'wb')
+    zfile.write(r)
+    zfile.close()
+
+
 
 class Company:
     def __init__(self, ticker: str = None, cik: str = None, uagent: str = 'Mozilla/5.0') -> None:
@@ -40,8 +63,18 @@ class Company:
                 self.cik = cik
                 self.ticker = self._map_tickertocik() # map and assign ticker from cik
 
-        self.company_url = self._build_url() #build a url for requets
+    def _get_last_close(self) -> str:
+        self.price_url = 'https://finance.yahoo.com/quote/{}?p={}&.tsrc=fin-srch'.format(self.ticker, self.ticker)
+        self.html_doc = requests.get(self.price_url, headers=self.header)
+    
+        self.header = {'User-agent': self.uagent}
+        self.response = requests.get(self.price_url, headers=self.header)
+        self.html = self.response.text
+        self.soup = BeautifulSoup(self.html, 'html.parser')
+        self.last_close = self.soup.find_all('td', attrs = {'data-test':'PREV_CLOSE-value'})[0].string
+        return self.last_close
 
+    
     def _map_tickertocik(self) -> str:
         if self.ticker == None:
             self.ticker = self.cik_map[self.cik]
@@ -52,70 +85,65 @@ class Company:
         else:
             print("ERROR: failed to map values")
 
-    def _build_url(self) -> str:
-        self.base_url = 'https://data.sec.gov/submissions/'  
+    def _build_url(self, req: str) -> str: #url factory for request objects
+        self.submissions_base = 'https://data.sec.gov/submissions/' 
+        self.facts_base = 'https://data.sec.gov/api/xbrl/companyfacts/' 
         self.file_type = '.json'
 
-        if self.cik:
-            self.request_url = self.base_url + 'CIK' + self.cik + self.file_type
-            return self.request_url
+        if req.lower() == 'submissions':
+            if self.cik:
+                self.request_url = self.submissions_base + 'CIK' + self.cik + self.file_type
+                return self.request_url
+        elif req.lower() == 'facts':
+            if self.cik:
+                self.request_url = self.facts_base + 'CIK' + self.cik + self.file_type
+                return self.request_url
         else:
-            print("ERROR: url failed to build")
+            print("ERROR: {} url failed to build".format(req))
 
     def profile(self) -> dict:
-
+        self.r_url = self._build_url('submissions')
         self.header = {"User-agent": self.uagent}
-        self.response = requests.get(self.request_url, headers = self.header)
-        self.data = self.response.json()
+        self.response = requests.get(self.r_url, headers = self.header)
+        self.subs = self.response.json()
 
         self.company_profile = {
-            'Name': self.data['name'],
+            'Name': self.subs['name'],
             'CIK': self.cik,
-            'Tickers': self.data['tickers'],
-            'SIC': self.data['sic'],
-            'SIC Description': self.data['sicDescription'],
+            'Tickers': self.subs['tickers'],
+            'SIC': self.subs['sic'],
+            'SIC Description': self.subs['sicDescription'],
+            'Previous Close': '$' + self._get_last_close()
         }
         return self.company_profile
 
     def get_recent(self) -> dict:
         try:
-            if not self.data:
+            if not self.subs:
                 self.profile()
                 self.recent_filings = {
-                    'Accession Number' : self.data['filings']['recent']['accessionNumber']
+                    'Accession Number' : self.subs['filings']['recent']['accessionNumber']
                 }
             else:
                 self.recent_filings = {
-                    'Accession Number' : self.data['filings']['recent']['accessionNumber']
+                    'Accession Number' : self.subs['filings']['recent']['accessionNumber']
                 }
 
             return self.recent_filings
         except KeyError as e:
             print('An ERROR Occured')
             print(e)
-        
 
+    def get_facts(self) -> dict:
+        self.r_url = self._build_url('facts')
+        self.header = {"User-agent": self.uagent}
+        self.response = requests.get(self.r_url, headers = self.header)
+        self.facts = self.response.json()
+
+        return self.facts   
+    
 def main():
-    ck = Company(cik = '320193')
-    print(ck.ticker)
-    print(ck.cik)
-    print(ck.company_url)
-
-    print('\n')
-
-    aapl = Company(ticker = 'aapl')
-    print(aapl.ticker)
-    print(aapl.cik)
-    print(aapl.company_url)
-    print('\n')
-    Apple_Profile = aapl.profile()
-    for k, v in Apple_Profile.items():
-        print(k,':',v)
-    print('\n') 
-
-    Apple_Recent = aapl.get_recent()
-    for i in Apple_Recent['Accession Number']:
-        print(i)
-
-
+    plug = Company('plug')
+    print(plug.profile())
+    print(plug.get_facts())
 if __name__=="__main__": main()
