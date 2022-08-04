@@ -113,11 +113,11 @@ class Company:
             'Tickers': self.subs['tickers'],
             'SIC': self.subs['sic'],
             'SIC Description': self.subs['sicDescription'],
-            'Previous Close': '$' + self._get_last_close()
+            'Previous Close': self._get_last_close()
         }
         return self.company_profile
 
-    def get_recent(self) -> dict:
+    def get_recent_filings(self) -> dict:
         try:
             if not self.subs:
                 self.profile()
@@ -139,11 +139,12 @@ class Company:
         self.header = {"User-agent": self.uagent}
         self.response = requests.get(self.r_url, headers = self.header)
         self.facts = self.response.json()
-
         return self.facts   
-    
+   
 def main():
-    plug = Company('plug')
+
+    plug = Company(ticker='plug')
     print(plug.profile())
     print(plug.get_facts())
+
 if __name__=="__main__": main()
